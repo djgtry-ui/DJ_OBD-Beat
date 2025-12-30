@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beat eSP OBD-II Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
+        .gradient-bg { background: radial-gradient(circle at top right, #0f172a, #000000); }
+        canvas { max-width: 100%; height: auto; transition: all 0.3s; }
+    </style>
+</head>
+<body class="h-full w-full gradient-bg text-gray-200 p-4 flex flex-col items-center">
+
+    <div class="w-full max-w-4xl flex flex-col items-center">
+        <header class="w-full glass p-6 rounded-[30px] mb-6 text-center shadow-2xl">
+            <h1 class="text-2xl font-black text-indigo-400 tracking-tighter uppercase">OBD-II Smart Monitor</h1>
+            <div class="flex justify-center items-center gap-3 mt-2 text-[10px] font-mono tracking-widest">
+                <span id="status" class="text-red-500 animate-pulse">OFFLINE</span>
+                <span class="text-gray-700">|</span>
+                <span id="weton" class="text-gray-400 font-bold"></span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-6">
+            <div class="glass p-8 rounded-[40px] flex flex-col items-center">
+                <canvas id="rpmGauge" width="240" height="240"></canvas>
+                <h2 class="text-5xl font-black -mt-12" id="rpmText">0</h2>
+                <p class="text-[10px] uppercase text-indigo-400 font-bold mt-2">RPM (Rotations Per Minute)</p>
+            </div>
+            <div class="glass p-8 rounded-[40px] flex flex-col items-center">
+                <canvas id="speedGauge" width="240" height="240"></canvas>
+                <h2 class="text-5xl font-black -mt-12" id="speedText">0</h2>
+                <p class="text-[10px] uppercase text-emerald-400 font-bold mt-2">Speed (KM/H)</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-6">
+            <div class="glass p-4 rounded-2xl text-center">
+                <p class="text-[9px] uppercase text-gray-500 mb-1">Aki (Voltage)</p>
+                <h4 id="vAki" class="text-xl font-black text-yellow-400">0.0V</h4>
+            </div>
+            <div class="glass p-4 rounded-2xl text-center">
+                <p class="text-[9px] uppercase text-gray-500 mb-1">Posisi Gas</p>
+                <h4 id="vGas" class="text-xl font-black text-indigo-400">0%</h4>
+            </div>
+            <div class="glass p-4 rounded-2xl text-center">
+                <p class="text-[9px] uppercase text-gray-500 mb-1">Suhu Mesin</p>
+                <h4 id="vTemp" class="text-xl font-black text-red-500">0°C</h4>
+            </div>
+            <div class="glass p-4 rounded-2xl text-center">
+                <p class="text-[9px] uppercase text-gray-500 mb-1">Suhu Udara</p>
+                <h4 id="vIat" class="text-xl font-black text-blue-400">0°C</h4>
+            </div>
+        </div>
+
+        <div class="w-full glass p-6 rounded-[30px] border border-red-500/20 text-center">
+            <p class="text-[10px] font-bold text-red-500 mb-3 tracking-widest uppercase">Diagnostic Trouble Codes (DTC)</p>
+            <div id="dtcConsole" class="bg-black/40 p-4 rounded-xl font-mono text-sm text-green-500 mb-4 border border-white/5">
+                No Fault Detected
+            </div>
+            <button onclick="resetECU()" class="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black text-sm uppercase tracking-widest transition shadow-lg active:scale-95">
+                Clear DTC / Reset ECU
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function drawGauge(id, val, max, color) {
+            const ctx = document.getElementById(id).getContext('2d');
+            ctx.clearRect(0,0,240,240);
+            ctx.beginPath(); ctx.arc(120, 120, 95, 0.8 * Math.PI, 0.2 * Math.PI);
+            ctx.strokeStyle = '#111827'; ctx.lineWidth = 16; ctx.lineCap='round'; ctx.stroke();
+            let end = 0.8 * Math.PI + (val/max) * (1.4 * Math.PI);
+            ctx.beginPath(); ctx.arc(120, 120, 95, 0.8 * Math.PI, end > 2.2*Math.PI ? 2.2*Math.PI : end);
+            ctx.strokeStyle = color; ctx.lineWidth = 16; ctx.lineCap='round'; ctx.stroke();
+        }
+
+        async function update() {
+            try {
+                const res = await fetch('http://192.168.4.1/data');
+                const d = await res.json();
+                document.getElementById('status').innerText = "ECU CONNECTED";
+                document.getElementById('status').className = "text-green-500 animate-none";
+
+                drawGauge('rpmGauge', d.rpm, 10000, '#6366f1');
+                drawGauge('speedGauge', d.speed, 140, '#10b981');
+                document.getElementById('rpmText').innerText = Math.round(d.rpm);
+                document.getElementById('speedText').innerText = d.speed;
+                document.getElementById('vAki').innerText = d.volt.toFixed(1) + "V";
+                document.getElementById('vGas').innerText = Math.round(d.throttle) + "%";
+                document.getElementById('vTemp').innerText = d.temp + "°C";
+                document.getElementById('vIat').innerText = d.iat + "°C";
+
+                if(d.dtc !== "Normal") {
+                    document.getElementById('dtcConsole').innerText = "ERROR: " + d.dtc;
+                    document.getElementById('dtcConsole').classList.replace('text-green-500', 'text-red-500');
+                } else {
+                    document.getElementById('dtcConsole').innerText = "System Healthy";
+                    document.getElementById('dtcConsole').classList.replace('text-red-500', 'text-green-500');
+                }
+            } catch(e) {
+                document.getElementById('status').innerText = "OFFLINE / DISCONNECTED";
+                document.getElementById('status').className = "text-red-500 animate-pulse";
+            }
+        }
+
+        async function resetECU() {
+            if(!confirm("Hapus kode error dari ECU motor?")) return;
+            try {
+                const res = await fetch('http://192.168.4.1/reset');
+                if(res.ok) alert("DTC Cleared! Cek dashboard lagi.");
+            } catch(e) { alert("ESP32 tidak merespon"); }
+        }
+
+        function setWeton() {
+            const h = new Date().getHours();
+            // Hari ini Selasa Pahing jam 15:40 WIB
+            document.getElementById('weton').innerText = (h >= 18) ? "RABU PON" : "SELASA PAHING";
+        }
+
+        setInterval(update, 200);
+        setInterval(setWeton, 1000);
+    </script>
+</body>
+</html>
