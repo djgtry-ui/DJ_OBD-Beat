@@ -3,176 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beat eSP OBD-II Dashboard</title>
+    <title>Dj_OBD | Beat eSP Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
-        .gradient-bg { background: radial-gradient(circle at top right, #0f172a, #000000); }
+        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .gradient-bg { background: radial-gradient(circle at top right, #1e1b4b, #000000); }
         canvas { max-width: 100%; height: auto; transition: all 0.3s; }
+        .glow-text { text-shadow: 0 0 15px rgba(99, 102, 241, 0.8); }
         
-        /* Animasi untuk Overlay */
-        #connectionOverlay {
-            transition: opacity 0.5s ease, visibility 0.5s;
-        }
-        .pulse-icon { animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
+        /* Animasi Motor */
+        .motor-icon { animation: drive 2s ease-in-out infinite; color: #6366f1; font-size: 2.5rem; }
+        @keyframes drive {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-5px) rotate(-3deg); }
         }
     </style>
 </head>
-<body class="h-full w-full gradient-bg text-gray-200 p-4 flex flex-col items-center overflow-x-hidden">
-
-    <div id="connectionOverlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-6 text-center">
-        <div class="mb-6 relative">
-            <i class="fas fa-satellite-dish text-6xl text-red-500 pulse-icon"></i>
-            <i class="fas fa-bluetooth-b text-2xl text-blue-400 absolute -bottom-2 -right-2"></i>
-        </div>
-        <h2 class="text-2xl font-black text-white mb-2 tracking-tight uppercase">Menunggu Koneksi...</h2>
-        <p class="text-gray-400 max-w-xs text-sm leading-relaxed mb-8">
-            Pastikan alat <span class="text-red-500 font-bold">ELM327</span> terpasang di motor dan HP Anda terhubung ke WiFi <span class="text-indigo-400 font-bold">Dj_Module_OBD</span>.
-        </p>
-        <div class="flex gap-4">
-            <div class="flex items-center gap-2 text-[10px] text-gray-500 uppercase tracking-widest">
-                <i class="fas fa-wifi"></i> WiFi Ready
-            </div>
-            <div class="flex items-center gap-2 text-[10px] text-gray-500 uppercase tracking-widest">
-                <i class="fas fa-microchip"></i> ESP32 Active
-            </div>
-        </div>
-    </div>
+<body class="h-full w-full gradient-bg text-gray-200 p-4 flex flex-col items-center overflow-x-hidden font-sans">
 
     <div class="w-full max-w-4xl flex flex-col items-center">
-        <header class="w-full glass p-6 rounded-[30px] mb-6 text-center shadow-2xl">
-            <h1 class="text-2xl font-black text-indigo-400 tracking-tighter uppercase italic">
-                <i class="fas fa-tachometer-alt mr-2"></i>OBD-II Smart Monitor
-            </h1>
-            <div class="flex justify-center items-center gap-3 mt-2 text-[10px] font-mono tracking-widest">
-                <span id="status" class="text-red-500 animate-pulse">SEARCHING...</span>
-                <span class="text-gray-700">|</span>
-                <span id="weton" class="text-gray-400 font-bold"></span>
+        <header class="w-full glass p-6 rounded-[35px] mb-6 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-2 border-indigo-500/30">
+            <div class="flex items-center gap-4">
+                <div class="motor-icon">
+                    <i class="fas fa-motorcycle"></i>
+                </div>
+                <div class="text-center md:text-left">
+                    <h1 class="text-2xl font-black text-white tracking-tighter uppercase glow-text">Dj_OBD <span class="text-indigo-500">BEAT</span></h1>
+                    <div class="flex items-center gap-2 mt-1 text-[10px] font-mono tracking-widest justify-center md:justify-start">
+                        <span id="status" class="text-yellow-500 animate-pulse font-bold uppercase">INITIALIZING...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center md:items-end">
+                <div id="clock" class="text-4xl font-black tracking-widest text-white leading-none mb-2 font-mono">00:00:00</div>
+                <div class="flex flex-col items-center md:items-end gap-1 text-right">
+                    <div id="fullDateText" class="text-[12px] font-bold uppercase tracking-wider text-indigo-300">Memuat Tanggal...</div>
+                    <div id="hijriText" class="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">Memuat Hijriah...</div>
+                </div>
             </div>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-6">
-            <div class="glass p-8 rounded-[40px] flex flex-col items-center relative overflow-hidden">
+            <div class="glass p-8 rounded-[45px] flex flex-col items-center relative border-t border-indigo-500/20">
                 <canvas id="rpmGauge" width="240" height="240"></canvas>
-                <h2 class="text-5xl font-black -mt-12" id="rpmText">0</h2>
-                <p class="text-[10px] uppercase text-indigo-400 font-bold mt-2">RPM (Rotations Per Minute)</p>
+                <h2 class="text-6xl font-black -mt-12 text-white italic font-mono" id="rpmText">0</h2>
+                <p class="text-[11px] uppercase text-indigo-400 font-bold mt-2 tracking-[0.3em]">Engine RPM</p>
             </div>
-            <div class="glass p-8 rounded-[40px] flex flex-col items-center">
+            <div class="glass p-8 rounded-[45px] flex flex-col items-center relative border-t border-emerald-500/20">
                 <canvas id="speedGauge" width="240" height="240"></canvas>
-                <h2 class="text-5xl font-black -mt-12" id="speedText">0</h2>
-                <p class="text-[10px] uppercase text-emerald-400 font-bold mt-2">Speed (KM/H)</p>
+                <h2 class="text-6xl font-black -mt-12 text-white italic font-mono" id="speedText">0</h2>
+                <p class="text-[11px] uppercase text-emerald-400 font-bold mt-2 tracking-[0.3em]">Speed KM/H</p>
             </div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-6">
-            <div class="glass p-4 rounded-2xl text-center">
-                <i class="fas fa-car-battery text-yellow-400 text-xs mb-1"></i>
-                <p class="text-[9px] uppercase text-gray-500 mb-1">Aki (Voltage)</p>
-                <h4 id="vAki" class="text-xl font-black text-yellow-400">0.0V</h4>
+            <div class="glass p-5 rounded-3xl text-center border-b-2 border-yellow-500/30">
+                <i class="fas fa-car-battery text-yellow-500 mb-2 text-lg"></i>
+                <p class="text-[9px] uppercase text-gray-500 mb-1 font-bold">Aki / Battery</p>
+                <h4 id="vAki" class="text-xl font-black text-yellow-400 font-mono">0.0V</h4>
             </div>
-            <div class="glass p-4 rounded-2xl text-center">
-                <i class="fas fa-sliders-h text-indigo-400 text-xs mb-1"></i>
-                <p class="text-[9px] uppercase text-gray-500 mb-1">Throttle</p>
-                <h4 id="vGas" class="text-xl font-black text-indigo-400">0%</h4>
+            <div class="glass p-5 rounded-3xl text-center border-b-2 border-indigo-500/30">
+                <i class="fas fa-gas-pump text-indigo-500 mb-2 text-lg"></i>
+                <p class="text-[9px] uppercase text-gray-500 mb-1 font-bold">Throttle</p>
+                <h4 id="vGas" class="text-xl font-black text-indigo-400 font-mono">0%</h4>
             </div>
-            <div class="glass p-4 rounded-2xl text-center">
-                <i class="fas fa-thermometer-half text-red-500 text-xs mb-1"></i>
-                <p class="text-[9px] uppercase text-gray-500 mb-1">Engine Temp</p>
-                <h4 id="vTemp" class="text-xl font-black text-red-500">0°C</h4>
+            <div class="glass p-5 rounded-3xl text-center border-b-2 border-red-500/30">
+                <i class="fas fa-thermometer-three-quarters text-red-500 mb-2 text-lg"></i>
+                <p class="text-[9px] uppercase text-gray-500 mb-1 font-bold">Engine Temp</p>
+                <h4 id="vTemp" class="text-xl font-black text-red-500 font-mono">0°C</h4>
             </div>
-            <div class="glass p-4 rounded-2xl text-center">
-                <i class="fas fa-wind text-blue-400 text-xs mb-1"></i>
-                <p class="text-[9px] uppercase text-gray-500 mb-1">Intake Temp</p>
-                <h4 id="vIat" class="text-xl font-black text-blue-400">0°C</h4>
+            <div class="glass p-5 rounded-3xl text-center border-b-2 border-blue-500/30">
+                <i class="fas fa-wind text-blue-400 mb-2 text-lg"></i>
+                <p class="text-[9px] uppercase text-gray-500 mb-1 font-bold">IAT Temp</p>
+                <h4 id="vIat" class="text-xl font-black text-blue-400 font-mono">0°C</h4>
             </div>
         </div>
 
-        <div class="w-full glass p-6 rounded-[30px] border border-red-500/20 text-center">
-            <p class="text-[10px] font-bold text-red-500 mb-3 tracking-widest uppercase">
-                <i class="fas fa-exclamation-triangle mr-1"></i>Diagnostic Trouble Codes (DTC)
-            </p>
-            <div id="dtcConsole" class="bg-black/40 p-4 rounded-xl font-mono text-sm text-green-500 mb-4 border border-white/5">
-                No Fault Detected
+        <div class="w-full glass p-6 rounded-[35px] border border-red-500/20 text-center shadow-inner">
+            <p class="text-[10px] font-bold text-red-500 tracking-[0.4em] uppercase mb-3">Diagnostic System</p>
+            <div id="dtcConsole" class="bg-black/60 p-5 rounded-2xl font-mono text-sm text-green-500 mb-5 border border-white/5">
+                System Healthy
             </div>
-            <button onclick="resetECU()" class="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black text-sm uppercase tracking-widest transition shadow-lg active:scale-95">
-                Clear DTC / Reset ECU
+            <button onclick="resetECU()" class="w-full py-4 bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition shadow-xl active:scale-95 flex items-center justify-center gap-3">
+                <i class="fas fa-sync-alt"></i> Reset ECU Memory
             </button>
         </div>
     </div>
 
     <script>
-        const overlay = document.getElementById('connectionOverlay');
-
+        // --- GAUGE LOGIC ---
         function drawGauge(id, val, max, color) {
-            const ctx = document.getElementById(id).getContext('2d');
+            const canvas = document.getElementById(id);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             ctx.clearRect(0,0,240,240);
-            ctx.beginPath(); ctx.arc(120, 120, 95, 0.8 * Math.PI, 0.2 * Math.PI);
-            ctx.strokeStyle = '#111827'; ctx.lineWidth = 16; ctx.lineCap='round'; ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(120, 120, 95, 0.8 * Math.PI, 0.2 * Math.PI);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 18; ctx.lineCap = 'round';
+            ctx.stroke();
+
             let end = 0.8 * Math.PI + (val/max) * (1.4 * Math.PI);
-            ctx.beginPath(); ctx.arc(120, 120, 95, 0.8 * Math.PI, end > 2.2*Math.PI ? 2.2*Math.PI : end);
-            ctx.strokeStyle = color; ctx.lineWidth = 16; ctx.lineCap='round'; ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(120, 120, 95, 0.8 * Math.PI, end > 2.2*Math.PI ? 2.2*Math.PI : end);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 18; ctx.lineCap = 'round';
+            ctx.stroke();
         }
 
-        async function update() {
-            try {
-                const res = await fetch('http://192.168.4.1/data');
-                const d = await res.json();
-                
-                // Jika sukses, sembunyikan overlay
-                overlay.style.opacity = '0';
-                setTimeout(() => overlay.style.visibility = 'hidden', 500);
+        // --- UI UPDATE ---
+        function updateUI(rpm, speed, volt, throttle, temp, iat, dtc) {
+            drawGauge('rpmGauge', rpm, 10000, '#6366f1');
+            drawGauge('speedGauge', speed, 140, '#10b981');
+            
+            document.getElementById('rpmText').innerText = Math.round(rpm);
+            document.getElementById('speedText').innerText = Math.round(speed);
+            document.getElementById('vAki').innerText = parseFloat(volt).toFixed(1) + "V";
+            document.getElementById('vGas').innerText = Math.round(throttle) + "%";
+            document.getElementById('vTemp').innerText = temp + "°C";
+            document.getElementById('vIat').innerText = iat + "°C";
 
-                document.getElementById('status').innerText = "ECU CONNECTED";
-                document.getElementById('status').className = "text-green-400 animate-none font-bold";
-
-                drawGauge('rpmGauge', d.rpm, 10000, '#6366f1');
-                drawGauge('speedGauge', d.speed, 140, '#10b981');
-                document.getElementById('rpmText').innerText = Math.round(d.rpm);
-                document.getElementById('speedText').innerText = d.speed;
-                document.getElementById('vAki').innerText = d.volt.toFixed(1) + "V";
-                document.getElementById('vGas').innerText = Math.round(d.throttle) + "%";
-                document.getElementById('vTemp').innerText = d.temp + "°C";
-                document.getElementById('vIat').innerText = d.iat + "°C";
-
-                const consoleEl = document.getElementById('dtcConsole');
-                if(d.dtc && d.dtc !== "Normal") {
-                    consoleEl.innerText = "ERROR: " + d.dtc;
-                    consoleEl.className = "bg-red-900/20 p-4 rounded-xl font-mono text-sm text-red-500 mb-4 border border-red-500/30";
-                } else {
-                    consoleEl.innerText = "System Healthy";
-                    consoleEl.className = "bg-black/40 p-4 rounded-xl font-mono text-sm text-green-500 mb-4 border border-white/5";
-                }
-            } catch(e) {
-                // Jika gagal, tampilkan overlay
-                overlay.style.visibility = 'visible';
-                overlay.style.opacity = '1';
-
-                document.getElementById('status').innerText = "OFFLINE";
-                document.getElementById('status').className = "text-red-500 animate-pulse";
+            const consoleBox = document.getElementById('dtcConsole');
+            if(dtc && dtc !== "Normal") {
+                consoleBox.innerText = "!! ERROR: " + dtc;
+                consoleBox.className = "bg-red-950/30 p-5 rounded-2xl font-mono text-sm text-red-500 border border-red-500/30";
+            } else {
+                consoleBox.innerText = "ECU STATUS: HEALTHY";
+                consoleBox.className = "bg-black/60 p-5 rounded-2xl font-mono text-sm text-green-500 border border-white/5";
             }
         }
 
-        async function resetECU() {
-            if(!confirm("Hapus kode error dari ECU motor?")) return;
+        // --- SISTEM AUTO-DETECT + SIMULASI ---
+        async function update() {
             try {
-                const res = await fetch('http://192.168.4.1/reset');
-                if(res.ok) alert("DTC Cleared! Cek dashboard lagi.");
-            } catch(e) { alert("ESP32 tidak merespon"); }
+                // Time-out fetch agar tidak menunggu terlalu lama
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1000);
+                
+                const res = await fetch('http://192.168.4.1/data', { signal: controller.signal });
+                const d = await res.json();
+                
+                document.getElementById('status').innerText = "ECU ONLINE";
+                document.getElementById('status').className = "text-green-500 font-bold uppercase tracking-widest";
+                updateUI(d.rpm, d.speed, d.volt, d.throttle, d.temp, d.iat, d.dtc);
+                clearTimeout(timeoutId);
+            } catch(e) {
+                // JIKA OFFLINE -> JALANKAN SIMULASI
+                document.getElementById('status').innerText = "DEMO MODE (OFFLINE)";
+                document.getElementById('status').className = "text-yellow-500 animate-pulse font-bold uppercase tracking-widest";
+
+                const simRpm = 800 + Math.random() * 2500;
+                const simSpeed = Math.random() * 60;
+                const simVolt = 12.4 + Math.random() * 0.4;
+                
+                updateUI(simRpm, simSpeed, simVolt, Math.random()*20, 85, 33, "Normal");
+            }
         }
 
-        function setWeton() {
-            const h = new Date().getHours();
-            // Sesuaikan dengan data terbaru Anda
-            document.getElementById('weton').innerText = (h >= 18) ? "RABU PON" : "SELASA PAHING";
+        // --- WETON & HIJRIAH LOGIC (FIXED) ---
+        function getHijriDate() {
+            const date = new Date();
+            let jd = Math.floor(date.getTime() / 86400000) + 2440588;
+            if (date.getHours() >= 18) jd++; 
+
+            const l = jd - 1948440 + 10632;
+            const n = Math.floor((l - 1) / 10631);
+            const l_rem = l - 10631 * n + 354;
+            const j = Math.floor((10985 - l_rem) / 5316) * Math.floor((50 * l_rem + 2450) / 17719) + Math.floor(l_rem / 401) * Math.floor((11 * l_rem + 330) / 3996);
+            const l_rem2 = l_rem - Math.floor((401 * j + 61) / 11) + 354;
+            
+            // Fix: Penanganan index bulan agar tidak undefined
+            let m = Math.floor((l_rem2 + 28.5) / 29.5);
+            if (m > 12) m = 12;
+            if (m < 1) m = 1;
+            
+            const d = l_rem2 - Math.floor(29.5 * m - 28.5);
+            const y = 30 * n + j;
+
+            const months = ["Muharram", "Safar", "Rabi'ul Awwal", "Rabi'ul Akhir", "Jumadil Ula", "Jumadil Akhira", "Rajab", "Sya'ban", "Ramadhan", "Syawwal", "Dzulqa'dah", "Dzulhijjah"];
+            return `${d} ${months[m - 1]} ${y} H`;
         }
 
-        setInterval(update, 500); // Sedikit diperlambat agar tidak membebani ESP32
-        setInterval(setWeton, 1000);
+        function getWeton(date) {
+            const pasaran = ['Legi', 'Pahing', 'Pon', 'Wage', 'Kliwon'];
+            const baseDate = new Date(1970, 0, 1);
+            const diffDays = Math.floor((date - baseDate) / (1000 * 60 * 60 * 24));
+            // Offset +3 untuk sinkronisasi Rabu Pon pada 31 Des 2025
+            return pasaran[(diffDays + 3) % 5];
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            
+            document.getElementById('clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+            
+            const weton = getWeton(now);
+            const hari = days[now.getDay()];
+            const tgl = now.getDate();
+            const bln = months[now.getMonth()];
+            const thn = now.getFullYear();
+
+            document.getElementById('fullDateText').innerText = `${hari} ${weton}, ${tgl} ${bln} ${thn}`;
+            document.getElementById('hijriText').innerText = getHijriDate();
+        }
+
+        async function resetECU() {
+            if(!confirm("Hapus history error ECU?")) return;
+            try { await fetch('http://192.168.4.1/reset'); alert("Perintah Terkirim!"); } catch(e) { alert("ESP32 Offline!"); }
+        }
+
+        // Loop utama
+        setInterval(update, 300);
+        setInterval(updateTime, 1000);
+        updateTime();
     </script>
 </body>
 </html>
